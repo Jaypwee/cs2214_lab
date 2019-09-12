@@ -144,18 +144,19 @@ always @(posedge clk) begin
 
       if (code == 6) begin
         // Set the idx_instr
-        idx_instr = col
+        idx_instr = row * 10 + col
+      end
       
       if (code == 7) begin
         // If accum is 0, set idx_instr
         if (accum == 0) begin
-          idx_instr = col
+          idx_instr = row * 10 + col
         end
 
       if (code == 8) begin
         // If accum is greater than or eq to 0,
         if (accum >= 0) begin
-          idx_instr = col
+          idx_instr = row * 10 + col
         end
 
       if (code == 9) begin
