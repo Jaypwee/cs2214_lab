@@ -142,6 +142,22 @@ always @(posedge clk) begin
           accum = memory[row][col];
       end
 
+      if (code == 6) begin
+        // Set the idx_instr
+        idx_instr = col
+      
+      if (code == 7) begin
+        // If accum is 0, set idx_instr
+        if (accum == 0) begin
+          idx_instr = col
+        end
+
+      if (code == 8) begin
+        // If accum is greater than or eq to 0,
+        if (accum >= 0) begin
+          idx_instr = col
+        end
+
       if (code == 9) begin
           // Input or Output. Take from Input if address is 1, copy to Output if address is 2
           if (address == 1) begin
