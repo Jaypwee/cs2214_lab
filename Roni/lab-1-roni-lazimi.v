@@ -40,14 +40,15 @@ initial begin
 
   instruction_list[0] = 901;
   instruction_list[1] = 399;
-  instruction_list[2] = 901;
-  instruction_list[3] = 199;
-  instruction_list[4] = 902;
-  instruction_list[5] = 0;
-  instruction_list[6] = 0;
-  instruction_list[7] = 0;
-  instruction_list[8] = 0;
+  instruction_list[2] = 607;
+  instruction_list[3] = 299;
+  instruction_list[4] = 708;
+  instruction_list[5] = 901;
+  instruction_list[6] = 809;
+  instruction_list[7] = 603;
+  instruction_list[8] = 605;
   instruction_list[9] = 0;
+
 
   // title, indent, list
   $write("Initialized input list:");
@@ -140,6 +141,26 @@ always @(posedge clk) begin
       if (code == 5) begin
           // Load the Accumulator with the contents of the memory address given
           accum = memory[row][col];
+      end
+
+      // subtracting 1 to simulate the continue keyword
+      if (code == 6) begin
+        // BRA
+        idx_instr = row * 10 + col - 1;
+      end
+
+      if (code == 7) begin
+        // BRZ
+        if (accum == 0) begin
+            idx_instr = row * 10 + col - 1;
+        end
+      end
+
+      if (code == 8) begin
+        // BRP
+        if (accum >= 0) begin
+            idx_instr = row * 10 + col - 1;
+        end
       end
 
       if (code == 9) begin
