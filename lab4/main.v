@@ -8,7 +8,7 @@ module main(clk);
 
     integer alive = 1;
 
-    integer instructions[4:0];
+    integer instructions[15:0];
     integer idx_instr;
     integer curr_in;
 
@@ -18,6 +18,7 @@ module main(clk);
     integer M[19:0];
     integer idx_mem;
     integer start_mem = 32'h10004000;
+    integer curr_mem;
 
     reg[5:0] opcode;
     reg[4:0] rs;
@@ -27,6 +28,7 @@ module main(clk);
     reg[5:0] func;
 
     reg[15:0] immediate;
+    reg[15:0] mem_as_index; // offset = immediate / 4bytes, since each index in M represents 4 bytes
 
     // used for always mimic
     integer j;
@@ -50,17 +52,17 @@ module main(clk);
         instructions[13] = { 6'b101011, 5'b10000, 5'b10000, 16'b0000000000001000 };
         instructions[14] = { 6'b101011, 5'b00100, 5'b00010, 16'b0000000000001100 };
 
-        for (idx_instr = 0; idx_instr < 5; idx_instr = idx_instr + 1) begin
+        for (idx_instr = 0; idx_instr < 15; idx_instr = idx_instr + 1) begin
             $display("binary: %b, hex: %h", instructions[idx_instr], instructions[idx_instr]);
         end
         idx_instr = 0;
 
+        // $zero-$ra; fill with 0's
         for (idx_reg = 0; idx_reg < 32; idx_reg = idx_reg + 1) begin
             R[idx_reg] = 0;
         end
 
         // v0 - v1
-        R[2] = 32'h0;
         R[3] = 32'h10004014;
 
         // a0-a3
@@ -163,8 +165,10 @@ module main(clk);
 
         // print memory:
         $display("Initialized Memory (Subset):");
+        curr_mem = start_mem;
         for (idx_mem = 0; idx_mem < 20; idx_mem = idx_mem + 1) begin
-            $display("0x%h: %d", start_mem, M[idx_mem]);
+            $display("0x%h: %d", curr_mem, M[idx_mem]);
+            curr_mem = curr_mem + 4;
         end
 
     end
@@ -226,22 +230,26 @@ module main(clk);
             end
 
             // I-type
-            // opcode != 6'b0 & opcode / 2 != 5'b00001 & opcode / 4 != 4'b0100
-            else begin
+            // division by 2^n truncates n digits
+            else if (opcode != 6'b0 & opcode / 2 != 5'b00001 & opcode / 4 != 4'b0100) begin
 
-                $display("I-TYPE");
-
-                rs = curr_in[25:21];
+                rs = curr_in[25:21];    // R[rs] contains memory address
                 rt = curr_in[20:16];
                 immediate = curr_in[15:0];
 
+                // (R[rs] - start_mem) / 4: memory address in R[rs] converted into an index in M
+                // immediate / 4: offset from immediate converted to index offset in M
+                mem_as_index = ((R[rs] - start_mem) + immediate) / 4;
+
                 // lw rt, off(rs)
+                // assign value in mem[rs + off] to rt
                 if (opcode == 6'b100011) begin
-                    R[rt] = M[rs + (immediate/4)];
+                    R[rt] = M[mem_as_index];
                 end
                 // sw rt, off(rs)
+                // assign value in rt to mem[rs + off]
                 else if (opcode == 6'b101011) begin
-                    M[rs + (immediate/4)] = R[rt];
+                    M[mem_as_index] = R[rt];
                 end
 
                 $display("Rs:\t%b", rs);
@@ -252,7 +260,7 @@ module main(clk);
 
             idx_instr = idx_instr + 1;
 
-            if (idx_instr > 4) begin
+            if (idx_instr > 14) begin
                 alive = 0;
             end
 
@@ -312,8 +320,10 @@ module main(clk);
 
             // print memory:
             $display("Memory");
+            curr_mem = start_mem;
             for (idx_mem = 0; idx_mem < 20; idx_mem = idx_mem + 1) begin
-                $display("0x%h: %d", start_mem, M[idx_mem]);
+                $display("0x%h: %d", curr_mem, M[idx_mem]);
+                curr_mem = curr_mem + 4;
             end
 
         end
