@@ -66,7 +66,8 @@ module main(clk);
         R[3] = 32'h10004014;
 
         // a0-a3
-        R[5] = 32'h10004018;
+        R[4] = 32'h10004014;
+        R[5] = 32'h10004000;
 
         // t0-t7
         R[8] = 4;
@@ -233,7 +234,8 @@ module main(clk);
             // division by 2^n truncates n digits
             else if (opcode != 6'b0 & opcode / 2 != 5'b00001 & opcode / 4 != 4'b0100) begin
 
-                rs = curr_in[25:21];    // R[rs] contains memory address
+                // R[rs] contains memory address when used in I-type instructions
+                rs = curr_in[25:21];
                 rt = curr_in[20:16];
                 immediate = curr_in[15:0];
 
@@ -241,13 +243,11 @@ module main(clk);
                 // immediate / 4: offset from immediate converted to index offset in M
                 mem_as_index = ((R[rs] - start_mem) + immediate) / 4;
 
-                // lw rt, off(rs)
-                // assign value in mem[rs + off] to rt
+                // lw rt, off(rs); assign value in mem[rs + off] to rt
                 if (opcode == 6'b100011) begin
                     R[rt] = M[mem_as_index];
                 end
-                // sw rt, off(rs)
-                // assign value in rt to mem[rs + off]
+                // sw rt, off(rs); assign value in rt to mem[rs + off]
                 else if (opcode == 6'b101011) begin
                     M[mem_as_index] = R[rt];
                 end
