@@ -1,7 +1,5 @@
 `timescale 1ns / 1ps
-/*
- * Do not change Module name
-*/
+
 module main(clk);
 
     input clk;
@@ -27,10 +25,10 @@ module main(clk);
     reg[5:0] func;
 
     reg[15:0] immediate;
-    reg[15:0] pc_as_index; // offset = immediate / 4bytes, since each index in M represents 4 bytes
+    integer pc_as_index; // will never be assigned to except at start of always block
+    integer print_index;
 
-    // used for always mimic
-    integer j;
+    integer instr_num = 0; // used to keep track of amount of instructions executed
 
     initial begin
 
@@ -136,8 +134,8 @@ module main(clk);
         M[99] = { 6'b000000, 5'b00000, 5'b00000, 5'b00000, 5'b00010, 6'b000110 };
 
         pc = start_pc;
-        for (pc_as_index = 0; pc_as_index < 100; pc_as_index = pc_as_index + 1) begin
-            $display("binary: %b, hex: %h", M[pc_as_index], M[pc_as_index]);
+        for (print_index = 0; print_index < 100; print_index = print_index + 1) begin
+            $display("binary: %b, hex: %h", M[print_index], M[print_index]);
         end
 
         // $zero-$ra; fill with 0's
@@ -250,8 +248,8 @@ module main(clk);
         // print memory:
         $display("Initialized Memory (Subset):");
         pc_print = start_pc;
-        for (pc_as_index = 0; pc_as_index < 100; pc_as_index = pc_as_index + 1) begin
-            $display("0x%h: %d", pc_print, M[pc_as_index]);
+        for (print_index = 0; print_index < 100; print_index = print_index + 1) begin
+            $display("0x%h: %d", pc_print, M[print_index]);
             pc_print = pc_print + 4;
         end
 
@@ -261,6 +259,7 @@ module main(clk);
 
         if (alive) begin
 
+            // this is the only line that pc_as_index will be modified in
             pc_as_index = (pc - start_pc) / 4;
 
             curr_in = M[pc_as_index];
@@ -268,7 +267,7 @@ module main(clk);
             opcode = curr_in[31:26];
 
             $display("_________________________________________________________");
-            $display("Current Instruction:\t%b; instruction number:%d", curr_in, pc_as_index + 1);
+            $display("Current Instruction:\t%b; instruction number:%d", curr_in, instr_num + 1);
             $display("Opcode:\t%b", opcode);
 
             // R-type
@@ -322,15 +321,15 @@ module main(clk);
 
                 // (R[rs] - pc) / 4: memory address in R[rs] converted into an index in M
                 // immediate / 4: offset from immediate converted to index offset in M
-                pc_as_index = ((R[rs] - pc) + immediate) / 4;
+                mem_as_index = ((R[rs] - pc) + immediate) / 4;
 
                 // lw rt, off(rs); assign value in mem[rs + off] to rt
                 if (opcode == 6'b100011) begin
-                    R[rt] = M[pc_as_index];
+                    R[rt] = M[mem_as_index];
                 end
                 // sw rt, off(rs); assign value in rt to mem[rs + off]
                 else if (opcode == 6'b101011) begin
-                    M[pc_as_index] = R[rt];
+                    M[mem_as_index] = R[rt];
                 end
 
                 // immediate == label for 3 conditions below
@@ -382,6 +381,8 @@ module main(clk);
             if (pc_as_index > 100) begin
                 alive = 0;
             end
+
+            instr_num = instr_num + 1;
 
             $write("$zero:\t%d", R[0]);
             $display();
@@ -440,8 +441,8 @@ module main(clk);
             // print memory:
             $display("Memory");
             pc_print = start_pc;
-            for (pc_as_index = 0; pc_as_index < 100; pc_as_index = pc_as_index + 1) begin
-                $display("0x%h: %d", pc_print, M[pc_as_index]);
+            for (print_index = 0; print_index < 100; print_index = print_index + 1) begin
+                $display("0x%h: %d", pc_print, M[print_index]);
                 pc_print = pc_print + 4;
             end
 
