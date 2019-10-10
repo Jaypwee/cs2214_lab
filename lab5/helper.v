@@ -17,13 +17,13 @@ end
 // Beq
 
 if (opcode == 6'h4)begin
-  if (rs == rt) pc_as_index = pc_as_index + label * 4 //We offset the pc by the label * 4. This needs to be additionally incremented by 4 at the end
+  if (rs == rt) pc = pc + label * 4 //We offset the pc by the label * 4. This needs to be additionally incremented by 4 at the end
 end
 
 if (opcode == 6'h5)begin
-  if (rs != rt) pc_as_index = pc_as_index + label * 4
+  if (rs != rt) pc = pc + label * 4
 end
 
 if(opcode == 6'h7)begin
-  if (rs > rt) pc_as_index = pc_as_index + label * 4
+  if (rs > rt) pc = pc + label * 4
 end
