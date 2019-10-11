@@ -5,6 +5,7 @@ module main(clk);
     input clk;
 
     integer alive = 1;
+    integer instruction_count = 26;
 
     integer curr_in;
 
@@ -12,26 +13,32 @@ module main(clk);
     integer idx_reg;
 
     integer M[99:0];
-    integer start_pc = 32'h00400000;
+    integer pc_start = 32'h00400000;
     integer pc;
-    integer pc_print;
+    integer pc_as_index; // will never be assigned to except at start of always block
     integer addr;
 
     reg[5:0] opcode;
+
+    // R-type variables
     reg[4:0] rs;
     reg[4:0] rt;
     reg[4:0] rd;
     reg[4:0] shamt;
     reg[5:0] func;
 
+    // I-Type variables
     reg[15:0] immediate;
-    integer pc_as_index; // will never be assigned to except at start of always block
-    integer print_index;
+    integer mem_as_index;
 
-    integer instr_num = 0; // used to keep track of amount of instructions executed
+    // display variables
+    integer print_index;
+    integer pc_print;
+    integer instructions_completed = 0;
 
     initial begin
 
+        // automatically generated
         M[0] = { 6'b000000, 5'b01000, 5'b01000, 5'b01001, 5'b00000, 6'b100000 };
         M[1] = { 6'b000000, 5'b01000, 5'b01001, 5'b01010, 5'b00000, 6'b100010 };
         M[2] = { 6'b000000, 5'b01010, 5'b01000, 5'b01010, 5'b00000, 6'b100100 };
@@ -133,22 +140,17 @@ module main(clk);
         M[98] = { 6'b000000, 5'b00000, 5'b00000, 5'b00000, 5'b00001, 6'b011110 };
         M[99] = { 6'b000000, 5'b00000, 5'b00000, 5'b00000, 5'b00010, 6'b000110 };
 
-        pc = start_pc;
-        for (print_index = 0; print_index < 100; print_index = print_index + 1) begin
-            $display("binary: %b, hex: %h", M[print_index], M[print_index]);
-        end
-
         // $zero-$ra; fill with 0's
         for (idx_reg = 0; idx_reg < 32; idx_reg = idx_reg + 1) begin
             R[idx_reg] = 0;
         end
 
         // v0 - v1
-        R[3] = 32'h10004014;
+        R[3] = 32'h00400078;
 
         // a0-a3
-        R[4] = 32'h10004014;
-        R[5] = 32'h10004000;
+        R[4] = 32'h00400078;
+        R[5] = 32'h00400064;
 
         // t0-t7
         R[8] = 4;
@@ -161,35 +163,13 @@ module main(clk);
         R[15] = 12;
 
         // s0-s7
-        R[16] = 32'h10004004;
+        R[16] = 32'h00400068;
 
         // t8-t9
-        R[24] = 32'h10004010;
+        R[24] = 32'h00400074;
 
         // fp
-        R[30] = 32'h1000400C;
-
-        // initialize memory
-        M[0] = 94;
-        M[1] =  98;
-        M[2] = 109;
-        M[3] = 102;
-        M[4] = 100;
-        M[5] =  99;
-        M[6] = 164;
-        M[7] = 183;
-        M[8] = 203;
-        M[9] = 192;
-        M[10] = 243;
-        M[11] = 229;
-        M[12] =  50;
-        M[13] =   1;
-        M[14] = 106;
-        M[15] =  82;
-        M[16] = 441;
-        M[17] = 414;
-        M[18] = 384;
-        M[19] = 419;
+        R[30] = 32'h00400070;
 
         $write("$zero:\t%d", R[0]);
         $display();
@@ -247,11 +227,15 @@ module main(clk);
 
         // print memory:
         $display("Initialized Memory (Subset):");
-        pc_print = start_pc;
+        pc_print = pc_start;
         for (print_index = 0; print_index < 100; print_index = print_index + 1) begin
-            $display("0x%h: %d", pc_print, M[print_index]);
+            $display("0x%h: %b (hex = 0x%h, dec = %d)", pc_print, M[print_index], M[print_index], M[print_index]);
             pc_print = pc_print + 4;
         end
+
+        $display("--> got to end");
+
+        pc = pc_start;
 
     end
 
@@ -260,14 +244,14 @@ module main(clk);
         if (alive) begin
 
             // this is the only line that pc_as_index will be modified in
-            pc_as_index = (pc - start_pc) / 4;
+            pc_as_index = (pc - pc_start) / 4;
 
             curr_in = M[pc_as_index];
 
             opcode = curr_in[31:26];
 
             $display("_________________________________________________________");
-            $display("Current Instruction:\t%b; instruction number:%d", curr_in, instr_num + 1);
+            $display("Current Instruction:\t%b; instruction number:%d", curr_in, instructions_completed + 1);
             $display("Opcode:\t%b", opcode);
 
             // R-type
@@ -321,31 +305,33 @@ module main(clk);
 
                 // (R[rs] - pc) / 4: memory address in R[rs] converted into an index in M
                 // immediate / 4: offset from immediate converted to index offset in M
-                mem_as_index = ((R[rs] - pc) + immediate) / 4;
+                mem_as_index = ((R[rs] - pc_start) + immediate) / 4;
 
-                // lw rt, off(rs); assign value in mem[rs + off] to rt
+                // load word: assign value in mem[rs + off] to rt
                 if (opcode == 6'b100011) begin
                     R[rt] = M[mem_as_index];
                 end
-                // sw rt, off(rs); assign value in rt to mem[rs + off]
+                // store word: assign value in rt to mem[rs + off]
                 else if (opcode == 6'b101011) begin
                     M[mem_as_index] = R[rt];
                 end
 
-                // immediate == label for 3 conditions below
+                // beq
                 else if (opcode == 6'h4) begin
                     if (R[rs] == R[rt]) begin
-                        pc = pc + immediate * 4; //We offset the pc by the label * 4. This needs to be additionally incremented by 4 at the end
+                        pc = pc + immediate * 4; // We offset the pc by the label * 4. This needs to be additionally incremented by 4 at the end
                     end
                 end
 
-                if (opcode == 6'h5 )begin
+                // bneq
+                else if (opcode == 6'h5 ) begin
                     if (R[rs] != R[rt]) begin
                         pc = pc + immediate * 4;
                     end
                 end
 
-                if(opcode == 6'h7) begin
+                // bgt
+                else if (opcode == 6'h7) begin
                     if (R[rs] > R[rt]) begin
                         pc = pc + immediate * 4;
                     end
@@ -359,30 +345,33 @@ module main(clk);
 
             end
 
-            else begin
-                // no incrementing of pc occurs
-                if (opcode / 2 == 5'b00001) begin
-                  // Jtype
-                  addr = curr_in[25:0] * 4;
+            // Jtype
+            // no incrementing of pc occurs
+            else if (opcode / 2 == 5'b00001) begin
 
-                  if(opcode == 6'b000010) begin
-                    // jump
-                    pc = addr;
-                  end
+                addr = curr_in[25:0] * 4;
 
-                  if (opcode == 6'b000011)begin
-                    // jal
-                    R[31] = addr;
-                  end
+                if(opcode == 6'b000010) begin
+                  // jump
+                  $display("jumping %h -> %h", pc, addr);
+                  pc = addr;
+                end
+
+                if (opcode == 6'b000011) begin
+                  // jal
+                  $display("jumping %h -> %h", pc, addr);
+                  pc = addr;    // jump
+                  R[31] = addr; // & link
                 end
 
             end
 
-            if (pc_as_index > 100) begin
+            // all code after this condition is only for display
+            instructions_completed = instructions_completed + 1;
+
+            if (instructions_completed >= instruction_count) begin
                 alive = 0;
             end
-
-            instr_num = instr_num + 1;
 
             $write("$zero:\t%d", R[0]);
             $display();
@@ -439,12 +428,14 @@ module main(clk);
             $display();
 
             // print memory:
-            $display("Memory");
-            pc_print = start_pc;
+            $display("Memory:");
+            pc_print = pc_start;
             for (print_index = 0; print_index < 100; print_index = print_index + 1) begin
-                $display("0x%h: %d", pc_print, M[print_index]);
+                $display("0x%h: %b (hex = 0x%h, dec = %d)", pc_print, M[print_index], M[print_index], M[print_index]);
                 pc_print = pc_print + 4;
             end
+
+            $display("---> PC = %h <---", pc);
 
         end
 
