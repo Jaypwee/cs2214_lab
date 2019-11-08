@@ -3,28 +3,29 @@ module main(clk, counter);
 
     input clk;
 
-    output[31:0] counter;
+    output counter;
 
     wire[31:0] looper;
+    wire out_wire;
 
     adder add(
       .left(looper),
       .right(4),
-      .res(counter)
+      .res(out_wire)
     );
 
-    always @(posedge clk) begin
-      $display("counter: %d", counter);
-    end
+    assign counter = out_wire;
 
 endmodule
 
 
 module adder(left, right, res);
     input left, right;
-    output reg res;
-    always @(left, right) begin
-      $display("add; l: %d, r: %d", left, right);
-      res <= left + right;
-    end
+    output res;
+    assign res = left + right;
 endmodule
+
+// expected: when forcing to looper, out_wire changes and then counter changes
+// does not run as expected
+
+// problem: out_wire and counter have size 1 and can't be changed (define why)
