@@ -33,12 +33,13 @@ module main(clk, init_pc);
 
 endmodule
 
-module adder(pc, change_mux, newpc);
+module adder(pc, change_mux, newpc); //Adder is only updated when a new pc comes. After updating pc, it should give MUX a 0
   input pc;
-  input change_mux;
+  output change_mux;
   output newpc;
 
   assign newpc = pc + 4;
+  assign change_mux = 0;
 endmodule
 
 module mux(mx_inp, pc, outp);
