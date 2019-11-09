@@ -4,6 +4,8 @@
 module main(clk);
   input clk;
 
+  //every comment I made besides this starts with "roni" so they are easier to find
+
   //roni:important changes start at this line
   //roni:wire defaults to wire[0:0], so "*_pc" and "instruction" may need to be wire[31:0] (I'm not certain though)
   wire[0:0] mux_signal;
@@ -13,7 +15,11 @@ module main(clk);
 
   initial begin
     //roni:assigning to wires leads to compile error, instead constants will be forced for the same effect
+
+    //roni:
     //mux_signal = 0;
+
+    //roni:
     //current_pc = init_pc;
   end
 
@@ -66,6 +72,7 @@ module instr_mem(init_pc, pc, instr);
 
   integer M[14:0];
 
+  //roni: init_pc will be a big number so init_pc+x is likely larger than the size of M
   initial begin
     M[init_pc+0] = { 6'b000000, 5'b01000, 5'b01000, 5'b01001, 5'b00000, 6'b100000 };
     M[init_pc+4] = { 6'b000000, 5'b01000, 5'b01001, 5'b01010, 5'b00000, 6'b100010 };
