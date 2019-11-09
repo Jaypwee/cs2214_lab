@@ -1,22 +1,28 @@
+`timescale 1ns / 1ps
 // Lab 8
 
-module main(clk, init_pc);
+module main(clk);
   input clk;
-  input init_pc;
 
+  //roni:important changes start at this line
+  //roni:wire defaults to wire[0:0], so "*_pc" and "instruction" may need to be wire[31:0] (I'm not certain though)
   wire[0:0] mux_signal;
   wire current_pc; //If this changes, it sends signal to Instruction memory
   wire updated_pc;
   wire instruction;
 
   initial begin
-    mux_signal = 0; =1
-    current_pc = init_pc;
+    //roni:assigning to wires leads to compile error, instead constants will be forced for the same effect
+    //mux_signal = 0;
+    //current_pc = init_pc;
   end
+
+  //summary: init_pc removed; initial values removed (can only be set by force)
+  //important changes end at this line; only syntax changes were below this line (i.e. missing colon)
 
   mux mux_main(
     .mx_inp(mux_signal),
-    .pc(updated_pc)
+    .pc(updated_pc),
     .outp(current_pc)
   );
 
@@ -49,7 +55,7 @@ module mux(mx_inp, pc, outp);
   output reg outp;
 
   always @(mx_inp) begin
-    if(mx_inp) outp <= pc //Updates the PC that was added by the adder if mux signal is 1.
+    if(mx_inp) outp <= pc; //Updates the PC that was added by the adder if mux signal is 1.
   end
 endmodule
 
