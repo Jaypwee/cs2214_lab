@@ -1,0 +1,51 @@
+//new_pc comes from add of IF module
+module stageID(clk_ID, instruction, new_pc, new_pc_carried, rd1, rd2, immediate, rx, ry);
+
+    input clk_ID, instruction, new_pc;
+    output ;
+
+    register reg(
+        .readReg1(instruction[25:20]),
+        .readReg2(instruction[20:16]),
+        .writeReg(from_mux),
+        .writeData(border wire TODO),  //i.e. data to write
+        .readData1(border wire TODO),
+        .readData2(border wire TODO)
+    );
+
+    sign_ext sx(
+        .in_bits(instruction[15:0]),
+        .out_bits(final_immediate)
+    );
+
+    mux is_itype(
+        .if_active(instruction[20:16]),
+        .default(instruction[15:11]),
+        .active(mux_is_active),
+        .output(from_mux) //same as writeReg in register
+    );
+
+    // will add more later
+    control cont(
+        .opcode(instructions[31:26])
+        .regDest(mux_is_active)
+    );
+
+    always @(posedge clk) begin
+
+    end
+
+
+endmodule
+
+
+
+module register();
+
+endmodule
+
+
+
+module sign_ext();
+
+endmodule
