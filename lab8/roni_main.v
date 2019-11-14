@@ -71,7 +71,7 @@ module mux(in_value, carry_value);
     input in_value;
     output reg carry_value;
 
-    // follow a standard where a module that receives carry_value = 0 means failure (depends on module)
+    // protocol: any module that depends on a mux will have not update if it receives 0 from mux
     always @(in_value) begin
         if (!in_value) carry_value <= 0;
         else carry_value <= in_value;
