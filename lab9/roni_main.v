@@ -22,12 +22,15 @@ module main(clk);
     wire id_rt;
     wire mem_write_back;
 
+    wire mem_branch_pc;
+
     // ___control wires___
     wire control_handle_rtype;
 
     stage_IF stage_if(
         .pcsrc(1),
         .instruction(if_instruction),
+        .branch_pc(mem_branch_pc),
         .new_pc(if_new_pc)
     );
 
@@ -61,7 +64,7 @@ module main(clk);
           // printing read data 2 arbitrarily since it's value depends on the most modules
           $display("ID rd2: %d", id_read_data_2);
 
-          instructions_completed = instructions_completed + 1;
+          instructions_completed <= instructions_completed + 1;
           if (instructions_completed >= instruction_count) alive = 0;
 
         end
@@ -71,16 +74,16 @@ module main(clk);
 endmodule
 
 // ___IF module___
-module stage_IF(pcsrc, instruction);
+module stage_IF(pcsrc, branch_pc, instruction, new_pc);
 
     input pcsrc;
-    output instruction;
+    output instruction, new_pc;
 
     wire source_pc;   //pc depends on this depends on this
     wire current_pc;  //instr_mem,add depend on this
 
     mux mux_if(
-        .if_active(source_pc), //every module that depends on source_pc changes, if mux active
+        .if_active(branch_pc), //every module that depends on source_pc changes, if mux active
         .default_val(source_pc),
         .active(pcsrc),
         .output_val(current_pc)
@@ -102,6 +105,9 @@ module stage_IF(pcsrc, instruction);
         .pc(current_pc),
         .instruction(instruction)
     );
+
+    // redundant
+    assign new_pc = source_pc;
 
 endmodule
 
