@@ -1,0 +1,162 @@
+module stage_EXE(
+    in_new_pc,
+    in_rd1,
+    in_rd2,
+    in_sx_imm,
+    in_rr2_reg_dest,
+    in_write_reg_reg_dest,
+    ctrl_alu_src,
+    ctrl_alu_op,
+    ctrl_reg_dest,
+    ctrl_alu_branch,
+    out_alu_res,
+    out_add_res,
+    out_rd2,
+    out_reg_dest
+);
+
+    input[31:0] in_new_pc;
+    input[31:0] in_rd1;
+    input[31:0] in_rd2;
+    input[31:0] in_sx_imm;
+
+    // one of these 2 remains
+    input[4:0] in_rr2_reg_dest;
+    input[4:0] in_write_reg_reg_dest;
+
+    output[31:0] out_alu_res;
+    output[31:0] out_add_res;
+    output[31:0] out_rd2;           //rd2 carried from last module
+    output[31:0] out_reg_dest;
+
+    wire[31:0] alu_oprnd_2;
+
+    wire ctrl_alu_src;
+    wire ctrl_reg_dest;
+    wire ctrl_alu_branch;
+    wire[3:0] ctrl_alu_op;          //instruction provided by alu control
+
+    adder new_pc_adder(
+        .left(in_new_pc),
+        .right(in_sx_imm / 4),    //same as shift left 2
+        .res(out_add_res)
+    );
+
+    mux alu_operand(
+        .if_active(in_sx_imm),     //if i-type, use immediate
+        .default(in_rd2),          //if not i-type, use value from R[readData2]
+        .active(ctrl_alu_src),
+        .output_val(alu_oprnd_2)
+    );
+
+    mux reg_dest(
+        .if_active(in_write_reg_reg_dest),        //if i-type, write_reg value instruction[15:11] (write_reg)
+        .default(in_rr2_reg_dest),                //if not i-type, write_reg value is read_register_2
+        .active(ctrl_reg_dest),
+        .output_val(out_reg_dest)
+    );
+
+    alu exe_alu(
+        .left(in_rd1),
+        .right(alu_oprnd_2),
+        //.alu_branch(ctrl_alu_branch),
+        .op_to_perform(ctrl_alu_op),  //the graph shows alu control as a separate module but it can be made a wire
+        .res(out_alu_res)
+    );
+
+endmodule
+
+
+// 2 options:
+//  create a wire for each operation  (correct)
+//  use a short protocol where operation is mapped to a number <- (using this to avoid maintaining wires)
+module alu(left, right, op_to_perform) beginmodule
+
+    input[31:0] left;     //operand 1
+    input[31:0] right;    //operand 2
+
+    input[3:0] op_to_perform;    //defines what to do with operands, arbitrarily 2^4 options
+
+    output[31:0] res;
+
+    always @(left, right) begin
+
+        case(op_to_perform)
+            1: begin
+                //add
+                res <= left + right;
+            end
+            2: begin
+                //sub
+                res <= left - right;
+            end
+            3: begin
+                //mult
+                res <= left * right;
+            end
+            4: begin
+                //div
+                res <= left / right;
+            end
+        endcase
+
+    end
+
+endmodule
+
+
+
+module control_alu(func, opcode, alu_command, alu_branch);
+
+    input[4:0] func;
+    input[5:0] opcode;
+
+    output[3:0] alu_command;
+    output alu_branch;
+
+    always @(func, opcode) begin
+
+        // R-type
+        if (opcode == 6'h0) begin
+
+            if (func == 6'h20) begin
+                alu_command <= 1; //+
+            end
+
+            else if (func == 6'h22) begin
+                alu_command <= 2; //-
+            end
+
+            else if (func == 6'h) begin
+                alu_command <= 3; //*
+            end
+
+            else if (func == 6'h) begin
+                alu_command <= 4; //div
+            end
+
+        end
+
+        // I-type
+        else if (opcode != 6'b0 & opcode / 2 != 5'b00001 & opcode / 4 != 4'b0100) begin
+
+            //I-types only ever add or do nothing
+
+            // load word: *add* immediate to R[rr2]
+            if (opcode == 6'b100011) alu_command <= 1;
+
+            // store word: same as load word
+            else if (opcode == 6'b101011) alu_command <= 1;
+
+            //*i: nothing happens to the immediate
+            else alu_command <= 0;
+
+            // for now, no branching but the branch decision will be contributed to by this module
+            // TODO: change to variable
+            alu_branch <= 0;
+
+        end
+
+    end
+
+endmodule
