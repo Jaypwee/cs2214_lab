@@ -10,19 +10,21 @@ module main(clk);
     integer instructions_completed = 0;
 
     // ___stage wires___
-    // the prefix of each wire explains *after* which stage the wire will have a value
+    // each wire name prefix is a stage
+    // value of wire comes after completion of stage suggested by prefix of wire
+    // e.g. if_new_pc available after instruction fetch
     wire[31:0] if_instruction;
-    wire if_new_pc;
+    wire[31:0] if_new_pc;
 
-    wire id_carried_pc;
-    wire id_read_data_1;
-    wire id_read_data_2;
-    wire id_immediate;
-    wire id_rs;
-    wire id_rt;
+    wire[31:0] id_carried_pc;
+    wire[31:0] id_read_data_1;
+    wire[31:0] id_read_data_2;
+    wire[31:0] id_immediate;
+    wire[4:0] id_rs;
+    wire[4:0] id_rt;
     wire mem_write_back;
 
-    wire mem_branch_pc;
+    wire[31:0] exe_branch_pc;
 
     // ___control wires___
     wire control_handle_rtype;
@@ -77,10 +79,11 @@ endmodule
 module stage_IF(pcsrc, branch_pc, instruction, new_pc);
 
     input pcsrc;
-    output instruction, new_pc;
+    output[31:0] instruction;
+    output[31:0] new_pc;
 
-    wire source_pc;   //pc depends on this depends on this
-    wire current_pc;  //instr_mem,add depend on this
+    wire[31:0] source_pc;   //will be supplied by branch_pc at one point
+    wire[31:0] current_pc;  //instr_mem,add depend on this
 
     mux mux_if(
         .if_active(branch_pc), //every module that depends on source_pc changes, if mux active
@@ -113,11 +116,11 @@ endmodule
 
 module instr_mem(initial_pc, pc, instruction);
 
-    input initial_pc;
-    input pc;
-    output instruction;
+    input[31:0] initial_pc;
+    input[31:0] pc;
+    output[31:0] instruction;
 
-    integer M[31:0];
+    integer M[14:0];
 
     initial begin
         M[0] = { 6'b000000, 5'b01000, 5'b01000, 5'b01001, 5'b00000, 6'b100000 };
@@ -147,15 +150,21 @@ endmodule
 module stageID(instruction, new_pc, handle_rtype, wb_data, new_pc_carried, rd1, rd2, immediate, rs, rt);
 
     input[31:0] instruction;
-    input new_pc, handle_rtype, wb_data;
-    output reg new_pc_carried, rd1, rd2, immediate;
+    input[31:0] new_pc
+    input handle_rtype
+    input[31:0] wb_data;  //an integer
+
+    output[31:0] reg new_pc_carried;
+    output[31:0] reg rd1;
+    output[31:0] reg rd2;
+    output[31:0] reg immediate;
 
     // rs,rt are forwarded
-    output reg rs;
-    output reg rt;
-    wire rd;
+    output[4:0] reg rs;
+    output[4:0] reg rt;
+    wire[4:0] rd;
 
-    wire write_reg;
+    wire[4:0] write_reg;  //takes rd if R-type, rt if I-type
 
     //        |25:21,20:15|
     //R-Type: |rs,rt|,rd; rd is the write register
@@ -196,8 +205,12 @@ endmodule
 
 // ___common modules___
 module mux(if_active, default_val, active, output_val);
-    input if_active, active, default_val;
-    output reg output_val;
+
+    // at most 32 bit values
+    input[31:0] if_active;
+    input[31:0] default_val;
+    input active;
+    output[31:0] reg output_val;
 
     always @(if_active, default_val, active) begin
         if (active) begin
@@ -214,23 +227,31 @@ endmodule
 // no computation
 // only send a signal to all modules that rely on output
 module pc(in_pc, out_pc);
-    input in_pc;
-    output out_pc;
+    input[31:0] in_pc;
+    output[31:0] out_pc;
     assign out_pc = in_pc;
 endmodule
 
 
 module adder(left, right, res);
-    input left, right;
-    output res;
+    // does not handle results > 2^32
+    input[31:0] left;
+    input[31:0] right;
+    output[31:0] res;
     assign res = left + right;
 endmodule
 
 
 module register(readReg1, readReg2, first_address, writeReg, writeData, readData1, readData2);
 
-    input readReg1, readReg2, first_address, writeReg, writeData;
-    output reg readData1, readData2;
+    input readReg1;
+    input[4:0] readReg2;
+    input[31:0] first_address;
+    input[4:0] writeReg;
+    input[31:0] writeData;
+
+    output[31:0] reg readData1;
+    output[31:0] reg readData2;
 
     // no values until
     integer R[99:0];
@@ -249,8 +270,9 @@ endmodule
 
 module left_sign_ext(in_bits, to_length, out_bits);
 
-    input in_bits, to_length;
-    output out_bits;
+    input[31:0] in_bits;
+    input[5:0] to_length; //most amount of bits to extend to is (2^6)-1, if (2^5)-1 then no 32
+    output[31:0] out_bits;
 
     assign out_bits = in_bits | 32'h00; //TODO: change 32 to variable
 
@@ -260,8 +282,8 @@ endmodule
 // will be more outputs when necessary
 module control(opcode, regDest);
 
-    input opcode;
-    output reg regDest;
+    input[5:0] opcode;
+    output[4:0] reg regDest;
 
     always @(opcode) begin
 
