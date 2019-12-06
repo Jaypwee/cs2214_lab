@@ -11,25 +11,44 @@ module main(clk);
     integer instruction_count = 15;
     integer instructions_completed = 0;
 
-    // ___stage wires___
+    // ___stage input wires___
     // each wire name prefix is a stage
     // value of wire comes after completion of stage suggested by prefix of wire
-    wire[31:0] if_instruction;  //available after IF stage
-    wire[31:0] if_new_pc;
 
-    wire[31:0] id_carried_pc;
-    wire[31:0] id_read_data_1;
-    wire[31:0] id_read_data_2;
-    wire[31:0] id_immediate;
+    reg[31:0] if_instruction;
+    reg[31:0] if_new_pc;
 
-    wire[31:0] exe_mem_address;
-    wire[31:0] exe_branch_pc;
-    wire exe_zero;
+    reg[31:0] id_carried_pc;
+    reg[31:0] id_read_data_1;
+    reg[31:0] id_read_data_2;
+    reg[31:0] id_immediate;
 
-    wire[31:0] mem_data;
-    wire mem_pcsrc;
+    reg[31:0] exe_mem_address;
+    reg[31:0] exe_branch_pc;
+    reg exe_zero;
 
-    wire[31:0] wb_data;
+    reg[31:0] mem_data;
+    reg mem_pcsrc;
+
+    reg[31:0] wb_data;
+
+    //___stage border wires___
+    wire[31:0] brdr_if_instruction;
+    wire[31:0] brdr_if_new_pc;
+
+    wire[31:0] brdr_id_carried_pc;
+    wire[31:0] brdr_id_read_data_1;
+    wire[31:0] brdr_id_read_data_2;
+    wire[31:0] brdr_id_immediate;
+
+    wire[31:0] brdr_exe_mem_address;
+    wire[31:0] brdr_exe_branch_pc;
+    wire brdr_exe_zero;
+
+    wire[31:0] brdr_mem_data;
+    wire brdr_mem_pcsrc;
+
+    wire[31:0] brdr_wb_data;
 
     // ___control wires___
     wire control_handle_rtype;
@@ -51,8 +70,8 @@ module main(clk);
         .branch_pc(exe_branch_pc),
 
         // output
-        .instruction(if_instruction),
-        .new_pc(if_new_pc)
+        .instruction(brdr_if_instruction),
+        .new_pc(brdr_if_new_pc)
 
     );
 
@@ -65,10 +84,10 @@ module main(clk);
         .wb_data(wb_data),
 
         //output
-        .new_pc_carried(id_carried_pc),
-        .rd1(id_read_data_1),
-        .rd2(id_read_data_2),
-        .immediate(id_immediate)
+        .new_pc_carried(brdr_id_carried_pc),
+        .rd1(brdr_id_read_data_1),
+        .rd2(brdr_id_read_data_2),
+        .immediate(brdr_id_immediate)
 
     );
 
@@ -102,23 +121,23 @@ module main(clk);
         .ctrl_alu_src(!control_handle_rtype),
         .ctrl_alu_op(if_instruction[31:26]),
 
-        .out_alu_res(exe_mem_address),
-        .out_add_res(exe_branch_pc),
-        .out_zero(exe_zero)
+        .out_alu_res(brdr_exe_mem_address),
+        .out_add_res(brdr_exe_branch_pc),
+        .out_zero(brdr_exe_zero)
 
     );
 
     // lab11
     stage_MEM stage_mem(
 
-        .in_first_address(0),                 //TODO: change to first address in input
+        .in_first_address(32'h00400000),                 //TODO: change to first address in input
         .in_address(exe_mem_address),
         .in_write_data(id_read_data_2),
 
         .ctrl_mem_write(control_mem_write),
         .ctrl_mem_read(control_mem_read),
 
-        .out_read_data(mem_data)
+        .out_read_data(brdr_mem_data)
 
     );
 
@@ -127,17 +146,34 @@ module main(clk);
         .if_active(mem_data),
         .default_val(exe_mem_address),
         .active(control_mem_to_reg),
-        .output_val(wb_data)
+        .output_val(brdr_wb_data)
     );
 
     always @(posedge clk) begin
 
         if (alive) begin
 
-            //TODO: borders here, e.g. use will_branch to decide pcsrc at border EXE/MEM
+            // all inputs are assigned below, based on values currently captured by the borders
+            if_instruction <= brdr_if_instruction;
+            if_new_pc <= brdr_if_new_pc;
+
+            id_carried_pc <= brdr_id_carried_pc;
+            id_read_data_1 <= brdr_id_read_data_1;
+            id_read_data_2 <= brdr_id_read_data_2;
+            id_immediate <= brdr_id_immediate;
+
+            exe_mem_address <= brdr_exe_mem_address;
+            exe_branch_pc <= brdr_exe_branch_pc;
+            exe_zero <= brdr_exe_zero;
+
+            mem_data <= brdr_mem_data;
+            wb_data <= brdr_wb_data;
+
+            // control values assigned below
+            mem_pcsrc <= (control_will_branch & !exe_zero);
 
             instructions_completed <= instructions_completed + 1;
-            if (instructions_completed >= instruction_count) alive = 0;
+            if (instructions_completed >= instruction_count) alive <= 0;
 
         end
 
@@ -174,7 +210,7 @@ module stage_IF(pcsrc, branch_pc, instruction, new_pc);
     );
 
     instr_mem imem(
-        .initial_pc(0),       //TODO: change
+        .initial_pc(32'h00400000),       //based on instructions
         .pc(current_pc),
         .instruction(instruction)
     );
@@ -246,7 +282,6 @@ module stage_ID(instruction, new_pc, handle_rtype, wb_data, new_pc_carried, rd1,
 
     left_sign_ext sx(
         .in_bits(instruction[15:0]),
-        .to_length(32),
         .out_bits(immediate)
     );
 
@@ -552,13 +587,12 @@ module register(readReg1, readReg2, first_address, writeReg, writeData, readData
 endmodule
 
 
-module left_sign_ext(in_bits, to_length, out_bits);
+module left_sign_ext(in_bits, out_bits);
 
     input[31:0] in_bits;
-    input[5:0] to_length; //most amount of bits to extend to is (2^6)-1, if (2^5)-1 then no 32
     output[31:0] out_bits;
 
-    assign out_bits = in_bits | 32'h00; //TODO: change 32 to variable
+    assign out_bits = in_bits | 32'b00000000000000000000000000000000;
 
 endmodule
 
